@@ -1,4 +1,4 @@
-export type TokenType = string;
+export type TokenType = (typeof TOKENS)[keyof typeof TOKENS];
 
 export type Token = {
   type: TokenType;
@@ -43,7 +43,7 @@ export const TOKENS = {
   IF: "IF",
   ELSE: "ELSE",
   RETURN: "RETURN",
-};
+} as const;
 
 export const keywords: { [key: string]: TokenType } = {
   fn: TOKENS.FUNCTION,

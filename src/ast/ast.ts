@@ -20,6 +20,9 @@ export class Program implements Node {
     }
     return this.statements[0].tokenLiteral();
   }
+  constructor() {
+    this.statements = [];
+  }
 }
 
 export class Identifier implements Expression {
@@ -43,6 +46,19 @@ export class LetStatement implements Statement {
     this.token = token;
     this.name = name;
     this.value = value;
+  }
+  statementNode(): void {}
+  tokenLiteral(): string {
+    return this.token.literal;
+  }
+}
+
+export class ReturnStatement implements Statement {
+  token: Token;
+  returnValue: Expression;
+  constructor(token: Token, returnValue: Expression) {
+    this.token = token;
+    this.returnValue = returnValue;
   }
   statementNode(): void {}
   tokenLiteral(): string {
