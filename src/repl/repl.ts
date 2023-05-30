@@ -1,8 +1,20 @@
 import type { Interface } from "readline/promises";
-import { New } from "../lexer/lexer.js";
-import { TOKENS } from "../token/token.js";
+import { Lexer } from "../lexer/lexer.js";
+import { Parser } from "../parser/parser.js";
 
 const PROMPT = ">> ";
+const MONKEY_FACE = `            __,__
+   .--.  .-"     "-.  .--.
+  / .. \\/  .-. .-.  \\/ .. \\
+ | |  '|  /   Y   \\  |'  | |
+ | \\   \\  \\ 0 | 0 /  /   / |
+  \\ '- ,\\.-"""""""-./, -' /
+   ''-' /_   ^ ^   _\\ '-''
+       |  \\._   _./  |
+       \\   \\ '~' /   /
+        '._ '-=-' _.'
+           '-----'
+`;
 
 export const start = async (rl: Interface) => {
   let scanner = await rl.question(PROMPT);
@@ -12,15 +24,27 @@ export const start = async (rl: Interface) => {
       return;
     }
 
-    const l = New(scanner);
-    let tok = l.nextToken();
-    while (tok.type !== TOKENS.EOF) {
-      console.log(tok);
-      tok = l.nextToken();
+    const l = new Lexer(scanner);
+    const p = new Parser(l);
+
+    const program = p.parseProgram();
+
+    if (p.errors.length !== 0) {
+      printParserErrors(p.errors);
+    } else {
+      console.log(`${program.string()}\n`);
     }
+
     scanner = await rl.question(PROMPT);
   }
 };
+
+function printParserErrors(errors: string[]) {
+  console.log(MONKEY_FACE);
+  console.log("Woops! We ran into some monkey business here!");
+  console.log(" parser errors:");
+  errors.forEach((msg) => console.log(`\t${msg}\n`));
+}
 
 // await start();
 // rl.close();

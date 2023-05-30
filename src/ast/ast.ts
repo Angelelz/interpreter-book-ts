@@ -2,6 +2,7 @@ import { Token } from "../token/token.js";
 
 export interface Node {
   tokenLiteral(): string;
+  string(): string;
 }
 
 export interface Statement extends Node {
@@ -14,14 +15,19 @@ export interface Expression extends Node {
 
 export class Program implements Node {
   statements: Statement[];
+
+  constructor() {
+    this.statements = [];
+  }
   tokenLiteral(): string {
     if (this.statements.length === 0) {
       return "";
     }
     return this.statements[0].tokenLiteral();
   }
-  constructor() {
-    this.statements = [];
+
+  string(): string {
+    return this.statements.map((s) => s.string()).join("");
   }
 }
 
@@ -34,6 +40,42 @@ export class Identifier implements Expression {
   }
   expressionNode(): void {}
   tokenLiteral(): string {
+    return this.token.literal;
+  }
+
+  string(): string {
+    return this.value;
+  }
+}
+
+export class BooleanLiteral implements Expression {
+  token: Token;
+  value: boolean;
+  constructor(token: Token, value: boolean) {
+    this.token = token;
+    this.value = value;
+  }
+  expressionNode(): void {}
+  tokenLiteral(): string {
+    return this.token.literal;
+  }
+  string(): string {
+    return this.token.literal;
+  }
+}
+
+export class IntegerLiteral implements Expression {
+  token: Token;
+  value: number;
+  constructor(token: Token, value: number) {
+    this.token = token;
+    this.value = value;
+  }
+  expressionNode(): void {}
+  tokenLiteral(): string {
+    return this.token.literal;
+  }
+  string(): string {
     return this.token.literal;
   }
 }
@@ -51,6 +93,12 @@ export class LetStatement implements Statement {
   tokenLiteral(): string {
     return this.token.literal;
   }
+
+  string(): string {
+    return `${this.tokenLiteral()} ${this.name.string()} = ${
+      this.value.string() ? this.value.string() : ";"
+    }`;
+  }
 }
 
 export class ReturnStatement implements Statement {
@@ -63,5 +111,155 @@ export class ReturnStatement implements Statement {
   statementNode(): void {}
   tokenLiteral(): string {
     return this.token.literal;
+  }
+
+  string(): string {
+    return `${this.tokenLiteral()} ${
+      this.returnValue.string() ? this.returnValue.string() : ";"
+    }`;
+  }
+}
+
+export class ExpressionStatement implements Statement {
+  token: Token;
+  expression: Expression;
+  constructor(token: Token, expression: Expression) {
+    this.token = token;
+    this.expression = expression;
+  }
+  statementNode(): void {}
+  tokenLiteral(): string {
+    return this.token.literal;
+  }
+
+  string(): string {
+    return this.expression ? this.expression.string() : "";
+  }
+}
+
+export class FunctionLiteral implements Expression {
+  token: Token;
+  parameters: Identifier[];
+  body: BlockStatement;
+  constructor(token: Token, parameters: Identifier[], body: BlockStatement) {
+    this.token = token;
+    this.parameters = parameters;
+    this.body = body;
+  }
+  expressionNode(): void {}
+  tokenLiteral(): string {
+    return this.token.literal;
+  }
+  string(): string {
+    return `${this.tokenLiteral()}(${this.parameters
+      .map((p) => p.string())
+      .join(", ")}) ${this.body.string()}`;
+  }
+}
+
+export class CallExpression implements Expression {
+  token: Token;
+  func: Expression;
+  args: Expression[];
+  constructor(token: Token, func: Expression, args: Expression[]) {
+    this.token = token;
+    this.func = func;
+    this.args = args;
+  }
+  expressionNode(): void {}
+  tokenLiteral(): string {
+    return this.token.literal;
+  }
+  string(): string {
+    return `${this.func.string()}(${this.args
+      .map((a) => a.string())
+      .join(", ")})`;
+  }
+}
+
+export class IfExpression implements Expression {
+  token: Token;
+  condition: Expression;
+  consequence: BlockStatement;
+  alternative: BlockStatement;
+  constructor(
+    token: Token,
+    condition: Expression,
+    consequence: BlockStatement,
+    alternative: BlockStatement
+  ) {
+    this.token = token;
+    this.condition = condition;
+    this.consequence = consequence;
+    this.alternative = alternative;
+  }
+
+  expressionNode(): void {}
+  tokenLiteral(): string {
+    return this.token.literal;
+  }
+  string(): string {
+    return `${this.tokenLiteral()} ${this.condition.string()} ${this.consequence.string()}${
+      this.alternative ? " else " + this.alternative.string() : ""
+    }`;
+  }
+}
+
+export class BlockStatement implements Statement {
+  token: Token;
+  statements: Statement[];
+  constructor(token: Token, statements: Statement[]) {
+    this.token = token;
+    this.statements = statements;
+  }
+  statementNode(): void {}
+  tokenLiteral(): string {
+    return this.token.literal;
+  }
+  string(): string {
+    return this.statements.map((s) => s.string()).join("");
+  }
+}
+
+export class InfixExpression implements Expression {
+  token: Token;
+  left: Expression;
+  operator: string;
+  right: Expression;
+  constructor(
+    token: Token,
+    left: Expression,
+    operator: string,
+    right: Expression
+  ) {
+    this.token = token;
+    this.operator = operator;
+    this.left = left;
+    this.right = right;
+  }
+  expressionNode(): void {}
+  tokenLiteral(): string {
+    return this.token.literal;
+  }
+  string(): string {
+    return `(${this.left.string()} ${this.operator} ${this.right.string()})`;
+  }
+}
+
+export class PrefixExpression implements Expression {
+  token: Token;
+  operator: string;
+  right: Expression;
+  constructor(token: Token, operator: string, right: Expression) {
+    this.token = token;
+    this.operator = operator;
+    this.right = right;
+  }
+  expressionNode(): void {}
+  tokenLiteral(): string {
+    return this.token.literal;
+  }
+  string(): string {
+    return `(${this.operator}${this.right.string()})`;
   }
 }

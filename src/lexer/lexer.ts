@@ -9,7 +9,8 @@ export class Lexer {
     this.input = input;
     this.position = 0;
     this.readPosition = 0;
-    this.ch = input[0];
+    // this.ch = input[0];
+    this.readChar();
   }
 
   readChar(): void {
@@ -155,8 +156,8 @@ export class Lexer {
   }
 }
 
-export function New(input: string): Lexer {
-  const l = new Lexer(input);
-  l.readChar();
-  return l;
-}
+// export function New(input: string): Lexer {
+//   const l = new Lexer(input);
+//   l.readChar();
+//   return l;
+// }

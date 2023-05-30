@@ -1,4 +1,4 @@
-import { New } from "./lexer.js";
+import { Lexer } from "./lexer.js";
 import { TOKENS, TokenType } from "../token/token.js";
 import { expect, it } from "vitest";
 
@@ -44,15 +44,15 @@ function testNextToken() {
     },
   ];
 
-  const l = New(input);
+  const l = new Lexer(input);
 
-  for (let i = 0; i < tests.length; i++) {
+  tests.forEach((test) => {
     const tok = l.nextToken();
 
-    expect(tok.type).toBe(tests[i].expectedType);
+    expect(tok.type).toBe(test.expectedType);
 
-    expect(tok.literal).toBe(tests[i].expectedLiteral);
-  }
+    expect(tok.literal).toBe(test.expectedLiteral);
+  });
 }
 
 function testNextToken2() {
@@ -153,7 +153,7 @@ if (5 < 10) {
     { expectedType: TOKENS.EOF, expectedLiteral: "" },
   ];
 
-  const l = New(input);
+  const l = new Lexer(input);
 
   for (let i = 0; i < tests.length; i++) {
     const tok = l.nextToken();

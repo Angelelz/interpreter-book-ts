@@ -6,6 +6,7 @@
   "main": "index.js",
   "scripts": {
     "test": "vitest --run --reporter verbose",
+    "test:debug": "vitest --run --reporter verbose --single-thread --inspect-brk",
     "build": "tsc",
     "dev": "npx ts-node --esm src/index.ts"
   },
