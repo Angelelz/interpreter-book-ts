@@ -2,7 +2,7 @@ import { it, expect } from "vitest";
 import { Lexer } from "../lexer/lexer.js";
 import { Parser } from "../parser/parser.js";
 import { Integer, MonkeyObject, Boolean } from "../object/object.js";
-import { evalMonkey } from "./evaluator.js";
+import { NULL, evalMonkey } from "./evaluator.js";
 
 it.each([
   {
@@ -190,6 +190,52 @@ it.each([
     testBooleanObject(evaluated, expected);
   }
 );
+
+it.each([
+  {
+    input: "if (true) { 10 }",
+    expected: 10,
+  },
+  {
+    input: "if (false) { 10 }",
+    expected: null,
+  },
+  {
+    input: "if (1) { 10 }",
+    expected: 10,
+  },
+  {
+    input: "if (1 < 2) { 10 }",
+    expected: 10,
+  },
+  {
+    input: "if (1 > 2) { 10 }",
+    expected: null,
+  },
+  {
+    input: "if (1 > 2) { 10 } else { 20 }",
+    expected: 20,
+  },
+  {
+    input: "if (1 < 2) { 10 } else { 20 }",
+    expected: 10,
+  },
+])(
+  "should evaluate if expression $input to $expected",
+  ({ input, expected }) => {
+    const evaluated = testEval(input);
+
+    if (typeof expected === "number") {
+      testIntegerObject(evaluated, expected);
+    } else {
+      testNullObject(evaluated);
+    }
+  }
+);
+
+function testNullObject(obj: MonkeyObject) {
+  expect(obj).toBe(NULL);
+}
 
 function testEval(input: string) {
   const l = new Lexer(input);

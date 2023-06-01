@@ -1,6 +1,8 @@
 import {
+  BlockStatement,
   BooleanLiteral,
   ExpressionStatement,
+  IfExpression,
   InfixExpression,
   IntegerLiteral,
   Node,
@@ -16,7 +18,7 @@ import {
   TYPE,
 } from "../object/object.js";
 
-const TRUE = new Boolean(true),
+export const TRUE = new Boolean(true),
   FALSE = new Boolean(false),
   NULL = new Null();
 
@@ -43,7 +45,34 @@ export function evalMonkey<TNode extends Node>(node: TNode): MonkeyObject {
     return evalInfixExpression(node.operator, left, right);
   }
 
+  if (node instanceof BlockStatement) return evalStatements(node.statements);
+
+  if (node instanceof IfExpression) return evalIfExpression(node);
+
   return null;
+}
+
+function evalIfExpression(node: IfExpression) {
+  const condition = evalMonkey(node.condition);
+
+  if (isTruthy(condition)) {
+    return evalMonkey(node.consequence);
+  } else if (node.alternative) {
+    return evalMonkey(node.alternative);
+  } else {
+    return NULL;
+  }
+}
+
+function isTruthy(obj: MonkeyObject) {
+  switch (obj.type()) {
+    case TYPE.BOOLEAN_OBJ:
+      return (obj as Boolean).value;
+    case TYPE.NULL_OBJ:
+      return false;
+    default:
+      return true;
+  }
 }
 
 function evalInfixExpression(
