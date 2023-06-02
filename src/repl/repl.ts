@@ -20,7 +20,7 @@ const MONKEY_FACE = `            __,__
 
 export const start = async (rl: Interface) => {
   let scanner = await rl.question(PROMPT);
-  const env = new Environment();
+  const env = new Environment({});
 
   while (scanner !== "exit") {
     if (!scanner) {

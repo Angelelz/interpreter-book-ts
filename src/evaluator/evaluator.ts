@@ -105,9 +105,38 @@ export function evalMonkey<TNode extends Node>(
     if (args.length === 1 && isError(args[0])) {
       return args[0];
     }
+    return applyFunction(functionObject, args);
   }
 
   return null;
+}
+
+function applyFunction(fn: MonkeyObject, args: MonkeyObject[]): MonkeyObject {
+  if (!(fn instanceof Function)) {
+    return new MonkeyError(`no a function: ${fn.type()}`);
+  }
+
+  const extendedEnv = extendFunctionEnv(fn, args);
+  const evaluated = evalMonkey(fn.body, extendedEnv);
+  return unwrapReturnValue(evaluated);
+}
+
+function extendFunctionEnv(fn: Function, args: MonkeyObject[]): Environment {
+  const env = new Environment({ outer: fn.env });
+
+  fn.parameters.forEach((param, i) => {
+    env.set(param.value, args[i]);
+  });
+
+  return env;
+}
+
+function unwrapReturnValue(obj: MonkeyObject): MonkeyObject {
+  if (obj instanceof ReturnValue) {
+    return obj.value;
+  }
+
+  return obj;
 }
 
 function isError(obj: MonkeyObject): boolean {

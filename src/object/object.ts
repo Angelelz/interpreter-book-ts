@@ -18,14 +18,27 @@ export type MonkeyObject = {
 
 export class Environment {
   store: Record<string, MonkeyObject>;
-  constructor(store?: Record<string, MonkeyObject>) {
+  outer: Environment | null;
+  constructor({
+    outer,
+    store,
+  }: {
+    outer?: Environment;
+    store?: Record<string, MonkeyObject>;
+  }) {
     this.store = store ?? {};
+    this.outer = outer ?? null;
   }
   get(name: string): MonkeyObject {
-    return this.store[name];
+    const obj = this.store[name];
+    if (!obj && this.outer) {
+      return this.outer.get(name);
+    }
+    return this.store[name] ?? null;
   }
   set(name: string, value: MonkeyObject) {
     this.store[name] = value;
+    return value;
   }
 }
 

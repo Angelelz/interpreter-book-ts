@@ -409,6 +409,16 @@ it.each([
   }
 );
 
+it("should evaluate closures", () => {
+  const input = `let newAdder = fn(x) {
+    fn(y) { x + y }
+  };
+
+  let addTwo = newAdder(2);
+  addTwo(2);`;
+  testIntegerObject(testEval(input), 4);
+});
+
 function testNullObject(obj: MonkeyObject) {
   expect(obj).toBe(NULL);
 }
@@ -417,7 +427,7 @@ function testEval(input: string) {
   const l = new Lexer(input);
   const p = new Parser(l);
   const program = p.parseProgram();
-  const env = new Environment();
+  const env = new Environment({});
   return evalMonkey(program, env);
 }
 
