@@ -8,6 +8,7 @@ import {
   Node,
   PrefixExpression,
   Program,
+  ReturnStatement,
   Statement,
 } from "../ast/ast.js";
 import {
@@ -16,6 +17,8 @@ import {
   Boolean,
   Null,
   TYPE,
+  ReturnValue,
+  MonkeyError,
 } from "../object/object.js";
 
 export const TRUE = new Boolean(true),
@@ -23,7 +26,7 @@ export const TRUE = new Boolean(true),
   NULL = new Null();
 
 export function evalMonkey<TNode extends Node>(node: TNode): MonkeyObject {
-  if (node instanceof Program) return evalStatements(node.statements);
+  if (node instanceof Program) return evalProgram(node.statements);
 
   if (node instanceof ExpressionStatement) return evalMonkey(node.expression);
 
@@ -36,24 +39,55 @@ export function evalMonkey<TNode extends Node>(node: TNode): MonkeyObject {
 
   if (node instanceof PrefixExpression) {
     const right = evalMonkey(node.right);
+    if (isError(right)) {
+      return right;
+    }
     return evalPrefixExpression(node.operator, right);
   }
 
   if (node instanceof InfixExpression) {
     const left = evalMonkey(node.left);
+    if (isError(left)) {
+      return left;
+    }
     const right = evalMonkey(node.right);
+    if (isError(right)) {
+      return right;
+    }
     return evalInfixExpression(node.operator, left, right);
   }
 
-  if (node instanceof BlockStatement) return evalStatements(node.statements);
+  if (node instanceof BlockStatement) return evalBlockStatement(node);
 
   if (node instanceof IfExpression) return evalIfExpression(node);
+
+  if (node instanceof ReturnStatement) {
+    const value = evalMonkey(node.returnValue);
+    if (isError(value)) {
+      return value;
+    }
+    return new ReturnValue(value);
+  }
 
   return null;
 }
 
+function isError(obj: MonkeyObject): boolean {
+  if (obj !== null) {
+    return obj.type() === TYPE.ERROR_OBJ;
+  }
+  return false;
+}
+
+function newError(message: string): MonkeyObject {
+  return new MonkeyError(message);
+}
+
 function evalIfExpression(node: IfExpression) {
   const condition = evalMonkey(node.condition);
+  if (isError(condition)) {
+    return condition;
+  }
 
   if (isTruthy(condition)) {
     return evalMonkey(node.consequence);
@@ -89,7 +123,15 @@ function evalInfixExpression(
   if (operator === "!=") {
     return nativeBooleanToBooleanObject(left != right);
   }
-  return null;
+  if (left.type() !== right.type()) {
+    return newError(
+      `type mismatch: ${left.type()} ${operator} ${right.type()}`
+    );
+  }
+
+  return newError(
+    `unknown operator: ${left.type()} ${operator} ${right.type()}`
+  );
 }
 
 function evalIntegerInfixExpression(
@@ -118,7 +160,9 @@ function evalIntegerInfixExpression(
     case "!=":
       return nativeBooleanToBooleanObject(leftVal !== rightVal);
     default:
-      return null;
+      return newError(
+        `unknown operator: ${left.type()} ${operator} ${right.type()}`
+      );
   }
 }
 
@@ -129,13 +173,13 @@ function evalPrefixExpression(operator: string, right: MonkeyObject) {
     case "-":
       return evalMinusPrefixOperatorExpression(right);
     default:
-      return NULL;
+      return new MonkeyError(`unknown operator: ${operator}${right.type()}`);
   }
 }
 
 function evalMinusPrefixOperatorExpression(right: MonkeyObject) {
   if (right.type() !== TYPE.INTEGER_OBJ) {
-    return null;
+    return newError(`unknown operator: -${right.type()}`);
   }
 
   const value = (right as Integer).value;
@@ -160,11 +204,37 @@ function nativeBooleanToBooleanObject(input: boolean): MonkeyObject {
   return FALSE;
 }
 
-function evalStatements(statements: Statement[]) {
+function evalBlockStatement(block: BlockStatement): MonkeyObject {
   let result: MonkeyObject;
 
-  statements.forEach((statement) => {
+  for (let statement of block.statements) {
     result = evalMonkey(statement);
-  });
+
+    if (
+      result !== null &&
+      (result.type() === TYPE.RETURN_VALUE_OBJ ||
+        result.type() === TYPE.ERROR_OBJ)
+    ) {
+      return result;
+    }
+  }
+  return result;
+}
+
+function evalProgram(statements: Statement[]) {
+  let result: MonkeyObject;
+
+  for (let statement of statements) {
+    result = evalMonkey(statement);
+
+    if (result instanceof ReturnValue) {
+      return result.value;
+    }
+
+    if (result instanceof MonkeyError) {
+      return result;
+    }
+  }
+
   return result;
 }

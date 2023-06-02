@@ -1,7 +1,12 @@
 import { it, expect } from "vitest";
 import { Lexer } from "../lexer/lexer.js";
 import { Parser } from "../parser/parser.js";
-import { Integer, MonkeyObject, Boolean } from "../object/object.js";
+import {
+  Integer,
+  MonkeyObject,
+  Boolean,
+  MonkeyError,
+} from "../object/object.js";
 import { NULL, evalMonkey } from "./evaluator.js";
 
 it.each([
@@ -232,6 +237,89 @@ it.each([
     }
   }
 );
+
+it.each([
+  {
+    input: "return 10;",
+    expected: 10,
+  },
+  {
+    input: "return 10; 9;",
+    expected: 10,
+  },
+  {
+    input: "return 2 * 5; 9;",
+    expected: 10,
+  },
+  {
+    input: "9; return 2 * 5; 9;",
+    expected: 10,
+  },
+  {
+    input: `
+      if (10 > 1) {
+        if (10 > 1) {
+          return 10;
+        }
+        return 1
+      }
+    `,
+    expected: 10,
+  },
+])(
+  "should evaluate return expression $input to $expected",
+  ({ input, expected }) => {
+    debugger;
+    const evaluated = testEval(input);
+    console.log(evaluated);
+    testIntegerObject(evaluated, expected);
+  }
+);
+
+it.each([
+  {
+    input: "5 + true;",
+    expected: "type mismatch: INTEGER + BOOLEAN",
+  },
+  {
+    input: "5 + true; 5;",
+    expected: "type mismatch: INTEGER + BOOLEAN",
+  },
+  {
+    input: "-true;",
+    expected: "unknown operator: -BOOLEAN",
+  },
+  {
+    input: "true + false;",
+    expected: "unknown operator: BOOLEAN + BOOLEAN",
+  },
+  {
+    input: "5; true + false; 5",
+    expected: "unknown operator: BOOLEAN + BOOLEAN",
+  },
+  {
+    input: "if (10 > 1) { true + false; }",
+    expected: "unknown operator: BOOLEAN + BOOLEAN",
+  },
+  {
+    input: `if (10 > 1) {
+      if (10 > 1) {
+        return true + false;
+      }
+      return 1
+    }`,
+    expected: "unknown operator: BOOLEAN + BOOLEAN",
+  },
+])("should evaluate error $input to $expected", ({ input, expected }) => {
+  const evaluated = testEval(input);
+
+  expect(evaluated).toBeInstanceOf(MonkeyError);
+  if (!(evaluated instanceof MonkeyError)) {
+    throw new Error("object is not an instance of MonkeyError");
+  }
+
+  expect(evaluated.message).toBe(expected);
+});
 
 function testNullObject(obj: MonkeyObject) {
   expect(obj).toBe(NULL);
