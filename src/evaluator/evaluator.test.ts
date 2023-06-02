@@ -6,6 +6,8 @@ import {
   MonkeyObject,
   Boolean,
   MonkeyError,
+  Function,
+  Environment,
 } from "../object/object.js";
 import { NULL, evalMonkey } from "./evaluator.js";
 
@@ -310,6 +312,10 @@ it.each([
     }`,
     expected: "unknown operator: BOOLEAN + BOOLEAN",
   },
+  {
+    input: "foobar",
+    expected: "identifier not found: foobar",
+  },
 ])("should evaluate error $input to $expected", ({ input, expected }) => {
   const evaluated = testEval(input);
 
@@ -321,6 +327,88 @@ it.each([
   expect(evaluated.message).toBe(expected);
 });
 
+it.each([
+  {
+    input: "let a = 5; a;",
+    expected: 5,
+  },
+  {
+    input: "let a = 5 * 5; a;",
+    expected: 25,
+  },
+  {
+    input: "let a = 5; let b = a; b;",
+    expected: 5,
+  },
+  {
+    input: "let a = 5; let b = a; let c = a + b + 5; c;",
+    expected: 15,
+  },
+])(
+  "should evaluate let expression $input to $expected",
+  ({ input, expected }) => {
+    testIntegerObject(testEval(input), expected);
+  }
+);
+
+it.each([
+  {
+    input: "fn(x) { x + 2; };",
+    parameters: ["x"],
+    expectedBody: "(x + 2)",
+  },
+])(
+  "should evaluate function expression $input to parameters: $parameters and body: $expectedBody",
+  ({ input, parameters, expectedBody }) => {
+    const evaluated = testEval(input);
+
+    expect(evaluated).toBeInstanceOf(Function);
+    if (!(evaluated instanceof Function)) {
+      throw new Error("object is not an instance of Function");
+    }
+
+    expect(evaluated.parameters.length).toBe(parameters.length);
+
+    evaluated.parameters.forEach((param, i) => {
+      expect(param.string()).toBe(parameters[i]);
+    });
+
+    expect(evaluated.body.string()).toBe(expectedBody);
+  }
+);
+
+it.each([
+  {
+    input: "let identity = fn(x) { x; }; identity(5);",
+    expected: 5,
+  },
+  {
+    input: "let identity = fn(x) { return x; }; identity(5);",
+    expected: 5,
+  },
+  {
+    input: "let double = fn(x) { x * 2; }; double(5);",
+    expected: 10,
+  },
+  {
+    input: "let add = fn(x, y) { x + y; }; add(5, 5);",
+    expected: 10,
+  },
+  {
+    input: "let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));",
+    expected: 20,
+  },
+  {
+    input: "fn(x) { x; }(5)",
+    expected: 5,
+  },
+])(
+  "should evaluate function expression $input to $expected",
+  ({ input, expected }) => {
+    testIntegerObject(testEval(input), expected);
+  }
+);
+
 function testNullObject(obj: MonkeyObject) {
   expect(obj).toBe(NULL);
 }
@@ -329,7 +417,8 @@ function testEval(input: string) {
   const l = new Lexer(input);
   const p = new Parser(l);
   const program = p.parseProgram();
-  return evalMonkey(program);
+  const env = new Environment();
+  return evalMonkey(program, env);
 }
 
 function testBooleanObject(obj: MonkeyObject, expected: boolean) {

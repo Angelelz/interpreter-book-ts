@@ -1,10 +1,15 @@
 import {
   BlockStatement,
   BooleanLiteral,
+  CallExpression,
+  Expression,
   ExpressionStatement,
+  FunctionLiteral,
+  Identifier,
   IfExpression,
   InfixExpression,
   IntegerLiteral,
+  LetStatement,
   Node,
   PrefixExpression,
   Program,
@@ -19,16 +24,22 @@ import {
   TYPE,
   ReturnValue,
   MonkeyError,
+  Environment,
+  Function,
 } from "../object/object.js";
 
 export const TRUE = new Boolean(true),
   FALSE = new Boolean(false),
   NULL = new Null();
 
-export function evalMonkey<TNode extends Node>(node: TNode): MonkeyObject {
-  if (node instanceof Program) return evalProgram(node.statements);
+export function evalMonkey<TNode extends Node>(
+  node: TNode,
+  env: Environment
+): MonkeyObject {
+  if (node instanceof Program) return evalProgram(node.statements, env);
 
-  if (node instanceof ExpressionStatement) return evalMonkey(node.expression);
+  if (node instanceof ExpressionStatement)
+    return evalMonkey(node.expression, env);
 
   if (node instanceof IntegerLiteral) return new Integer(node.value);
 
@@ -38,7 +49,7 @@ export function evalMonkey<TNode extends Node>(node: TNode): MonkeyObject {
   if (node instanceof Null) return NULL;
 
   if (node instanceof PrefixExpression) {
-    const right = evalMonkey(node.right);
+    const right = evalMonkey(node.right, env);
     if (isError(right)) {
       return right;
     }
@@ -46,27 +57,54 @@ export function evalMonkey<TNode extends Node>(node: TNode): MonkeyObject {
   }
 
   if (node instanceof InfixExpression) {
-    const left = evalMonkey(node.left);
+    const left = evalMonkey(node.left, env);
     if (isError(left)) {
       return left;
     }
-    const right = evalMonkey(node.right);
+    const right = evalMonkey(node.right, env);
     if (isError(right)) {
       return right;
     }
     return evalInfixExpression(node.operator, left, right);
   }
 
-  if (node instanceof BlockStatement) return evalBlockStatement(node);
+  if (node instanceof BlockStatement) return evalBlockStatement(node, env);
 
-  if (node instanceof IfExpression) return evalIfExpression(node);
+  if (node instanceof IfExpression) return evalIfExpression(node, env);
 
   if (node instanceof ReturnStatement) {
-    const value = evalMonkey(node.returnValue);
+    const value = evalMonkey(node.returnValue, env);
     if (isError(value)) {
       return value;
     }
     return new ReturnValue(value);
+  }
+
+  if (node instanceof LetStatement) {
+    const value = evalMonkey(node.value, env);
+    if (isError(value)) {
+      return value;
+    }
+    env.set(node.name.value, value);
+  }
+
+  if (node instanceof Identifier) return evalIdentifier(node, env);
+
+  if (node instanceof FunctionLiteral) {
+    const params = node.parameters;
+    const body = node.body;
+    return new Function(params, body, env);
+  }
+
+  if (node instanceof CallExpression) {
+    const functionObject = evalMonkey(node.func, env);
+    if (isError(functionObject)) {
+      return functionObject;
+    }
+    const args = evalExpressions(node.args, env);
+    if (args.length === 1 && isError(args[0])) {
+      return args[0];
+    }
   }
 
   return null;
@@ -83,16 +121,40 @@ function newError(message: string): MonkeyObject {
   return new MonkeyError(message);
 }
 
-function evalIfExpression(node: IfExpression) {
-  const condition = evalMonkey(node.condition);
+function evalExpressions(exps: Expression[], env: Environment) {
+  let result: MonkeyObject[] = [];
+
+  for (let exp of exps) {
+    const evaluated = evalMonkey(exp, env);
+
+    if (isError(evaluated)) {
+      return [evaluated];
+    }
+
+    result.push(evaluated);
+  }
+
+  return result;
+}
+
+function evalIdentifier(node: Identifier, env: Environment): MonkeyObject {
+  const val = env.get(node.value);
+  if (!val) {
+    return newError(`identifier not found: ${node.value}`);
+  }
+  return val;
+}
+
+function evalIfExpression(node: IfExpression, env: Environment): MonkeyObject {
+  const condition = evalMonkey(node.condition, env);
   if (isError(condition)) {
     return condition;
   }
 
   if (isTruthy(condition)) {
-    return evalMonkey(node.consequence);
+    return evalMonkey(node.consequence, env);
   } else if (node.alternative) {
-    return evalMonkey(node.alternative);
+    return evalMonkey(node.alternative, env);
   } else {
     return NULL;
   }
@@ -204,11 +266,14 @@ function nativeBooleanToBooleanObject(input: boolean): MonkeyObject {
   return FALSE;
 }
 
-function evalBlockStatement(block: BlockStatement): MonkeyObject {
+function evalBlockStatement(
+  block: BlockStatement,
+  env: Environment
+): MonkeyObject {
   let result: MonkeyObject;
 
   for (let statement of block.statements) {
-    result = evalMonkey(statement);
+    result = evalMonkey(statement, env);
 
     if (
       result !== null &&
@@ -221,11 +286,11 @@ function evalBlockStatement(block: BlockStatement): MonkeyObject {
   return result;
 }
 
-function evalProgram(statements: Statement[]) {
+function evalProgram(statements: Statement[], env: Environment) {
   let result: MonkeyObject;
 
   for (let statement of statements) {
-    result = evalMonkey(statement);
+    result = evalMonkey(statement, env);
 
     if (result instanceof ReturnValue) {
       return result.value;

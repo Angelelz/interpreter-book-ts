@@ -1,3 +1,5 @@
+import { BlockStatement, Identifier } from "../ast/ast.js";
+
 type ObjectType = (typeof TYPE)[keyof typeof TYPE];
 
 export const TYPE = {
@@ -6,12 +8,48 @@ export const TYPE = {
   NULL_OBJ: "NULL",
   RETURN_VALUE_OBJ: "RETURN_VALUE",
   ERROR_OBJ: "ERROR",
+  FUNCTION_OBJ: "FUNCTION",
 } as const;
 
 export type MonkeyObject = {
   type(): ObjectType;
   inspect(): string;
 };
+
+export class Environment {
+  store: Record<string, MonkeyObject>;
+  constructor(store?: Record<string, MonkeyObject>) {
+    this.store = store ?? {};
+  }
+  get(name: string): MonkeyObject {
+    return this.store[name];
+  }
+  set(name: string, value: MonkeyObject) {
+    this.store[name] = value;
+  }
+}
+
+export class Function implements MonkeyObject {
+  parameters: Identifier[];
+  body: BlockStatement;
+  env: Environment;
+  constructor(
+    parameters: Identifier[],
+    body: BlockStatement,
+    env: Environment
+  ) {
+    this.parameters = parameters;
+    this.body = body;
+    this.env = env;
+  }
+  type() {
+    return TYPE.FUNCTION_OBJ;
+  }
+  inspect() {
+    const params = this.parameters.map((p) => p.string()).join(", ");
+    return `fn(${params}) {\n${this.body.string()}\n}`;
+  }
+}
 
 export class MonkeyError implements MonkeyObject {
   message: string;

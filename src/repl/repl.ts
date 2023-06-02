@@ -2,6 +2,7 @@ import type { Interface } from "readline/promises";
 import { Lexer } from "../lexer/lexer.js";
 import { Parser } from "../parser/parser.js";
 import { evalMonkey } from "../evaluator/evaluator.js";
+import { Environment } from "../object/object.js";
 
 const PROMPT = ">> ";
 const MONKEY_FACE = `            __,__
@@ -19,6 +20,7 @@ const MONKEY_FACE = `            __,__
 
 export const start = async (rl: Interface) => {
   let scanner = await rl.question(PROMPT);
+  const env = new Environment();
 
   while (scanner !== "exit") {
     if (!scanner) {
@@ -35,7 +37,7 @@ export const start = async (rl: Interface) => {
       scanner = await rl.question(PROMPT);
       continue;
     }
-    const evaluated = evalMonkey(program);
+    const evaluated = evalMonkey(program, env);
     if (evaluated) {
       console.log(evaluated.inspect(), "\n");
     }
