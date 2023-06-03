@@ -9,12 +9,29 @@ export const TYPE = {
   RETURN_VALUE_OBJ: "RETURN_VALUE",
   ERROR_OBJ: "ERROR",
   FUNCTION_OBJ: "FUNCTION",
+  STRING_OBJ: "STRING",
+  BUILTIN_OBJ: "BUILTIN",
 } as const;
 
 export type MonkeyObject = {
   type(): ObjectType;
   inspect(): string;
 };
+
+export type BuiltinFunction = (...args: MonkeyObject[]) => MonkeyObject;
+
+export class Builtin implements MonkeyObject {
+  fn: BuiltinFunction;
+  constructor(fn: BuiltinFunction) {
+    this.fn = fn;
+  }
+  type() {
+    return TYPE.BUILTIN_OBJ;
+  }
+  inspect() {
+    return "builtin function";
+  }
+}
 
 export class Environment {
   store: Record<string, MonkeyObject>;
@@ -87,6 +104,19 @@ export class ReturnValue implements MonkeyObject {
   }
   inspect() {
     return this.value.inspect();
+  }
+}
+
+export class MonkeyString implements MonkeyObject {
+  value: string;
+  constructor(value: string) {
+    this.value = value;
+  }
+  type() {
+    return TYPE.STRING_OBJ;
+  }
+  inspect() {
+    return this.value;
   }
 }
 

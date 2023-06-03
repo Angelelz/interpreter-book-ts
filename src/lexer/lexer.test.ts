@@ -74,6 +74,8 @@ if (5 < 10) {
 
 10 == 10;
 10 != 9;
+"foobar"
+"foo bar"
 `;
 
   const tests: { expectedType: TokenType; expectedLiteral: string }[] = [
@@ -150,6 +152,8 @@ if (5 < 10) {
     { expectedType: TOKENS.NOT_EQ, expectedLiteral: "!=" },
     { expectedType: TOKENS.INT, expectedLiteral: "9" },
     { expectedType: TOKENS.SEMICOLON, expectedLiteral: ";" },
+    { expectedType: TOKENS.STRING, expectedLiteral: "foobar" },
+    { expectedType: TOKENS.STRING, expectedLiteral: "foo bar" },
     { expectedType: TOKENS.EOF, expectedLiteral: "" },
   ];
 

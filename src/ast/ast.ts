@@ -80,6 +80,22 @@ export class IntegerLiteral implements Expression {
   }
 }
 
+export class StringLiteral implements Expression {
+  token: Token;
+  value: string;
+  constructor(token: Token, value: string) {
+    this.token = token;
+    this.value = value;
+  }
+  expressionNode() {}
+  tokenLiteral() {
+    return this.token.literal;
+  }
+  string() {
+    return this.token.literal;
+  }
+}
+
 export class LetStatement implements Statement {
   token: Token;
   name: Identifier;

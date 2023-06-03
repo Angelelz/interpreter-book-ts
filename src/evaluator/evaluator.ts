@@ -15,6 +15,7 @@ import {
   Program,
   ReturnStatement,
   Statement,
+  StringLiteral,
 } from "../ast/ast.js";
 import {
   Integer,
@@ -26,7 +27,10 @@ import {
   MonkeyError,
   Environment,
   Function,
+  MonkeyString,
+  Builtin,
 } from "../object/object.js";
+import { builtins } from "./builtins.js";
 
 export const TRUE = new Boolean(true),
   FALSE = new Boolean(false),
@@ -40,6 +44,8 @@ export function evalMonkey<TNode extends Node>(
 
   if (node instanceof ExpressionStatement)
     return evalMonkey(node.expression, env);
+
+  if (node instanceof StringLiteral) return new MonkeyString(node.value);
 
   if (node instanceof IntegerLiteral) return new Integer(node.value);
 
@@ -112,13 +118,17 @@ export function evalMonkey<TNode extends Node>(
 }
 
 function applyFunction(fn: MonkeyObject, args: MonkeyObject[]): MonkeyObject {
-  if (!(fn instanceof Function)) {
-    return new MonkeyError(`no a function: ${fn.type()}`);
+  if (fn instanceof Function) {
+    const extendedEnv = extendFunctionEnv(fn, args);
+    const evaluated = evalMonkey(fn.body, extendedEnv);
+    return unwrapReturnValue(evaluated);
   }
 
-  const extendedEnv = extendFunctionEnv(fn, args);
-  const evaluated = evalMonkey(fn.body, extendedEnv);
-  return unwrapReturnValue(evaluated);
+  if (fn instanceof Builtin) {
+    return fn.fn(...args);
+  }
+
+  return new MonkeyError(`not a function: ${fn.type()}`);
 }
 
 function extendFunctionEnv(fn: Function, args: MonkeyObject[]): Environment {
@@ -168,10 +178,14 @@ function evalExpressions(exps: Expression[], env: Environment) {
 
 function evalIdentifier(node: Identifier, env: Environment): MonkeyObject {
   const val = env.get(node.value);
-  if (!val) {
-    return newError(`identifier not found: ${node.value}`);
+  if (val) {
+    return val;
   }
-  return val;
+  const builtin = builtins[node.value];
+  if (builtin) {
+    return builtin;
+  }
+  return newError(`identifier not found: ${node.value}`);
 }
 
 function evalIfExpression(node: IfExpression, env: Environment): MonkeyObject {
@@ -208,6 +222,9 @@ function evalInfixExpression(
   if (left.type() === TYPE.INTEGER_OBJ && right.type() === TYPE.INTEGER_OBJ) {
     return evalIntegerInfixExpression(operator, left, right);
   }
+  if (left.type() === TYPE.STRING_OBJ && right.type() === TYPE.STRING_OBJ) {
+    return evalStringInfixExpression(operator, left, right);
+  }
   if (operator === "==") {
     return nativeBooleanToBooleanObject(left == right);
   }
@@ -223,6 +240,22 @@ function evalInfixExpression(
   return newError(
     `unknown operator: ${left.type()} ${operator} ${right.type()}`
   );
+}
+
+function evalStringInfixExpression(
+  operator: string,
+  left: MonkeyObject,
+  right: MonkeyObject
+) {
+  if (operator !== "+") {
+    return newError(
+      `unknown operator: ${left.type()} ${operator} ${right.type()}`
+    );
+  }
+
+  const leftVal = (left as MonkeyString).value;
+  const rightVal = (right as MonkeyString).value;
+  return new MonkeyString(leftVal + rightVal);
 }
 
 function evalIntegerInfixExpression(

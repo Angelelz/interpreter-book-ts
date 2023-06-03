@@ -86,6 +86,9 @@ export class Lexer {
       case "":
         tok = { type: TOKENS.EOF, literal: "" };
         break;
+      case '"':
+        tok = { type: TOKENS.STRING, literal: this.readString() };
+        break;
       default:
         if (this.isLetter(this.ch)) {
           const literal = this.readIdentifier();
@@ -112,6 +115,17 @@ export class Lexer {
     ) {
       this.readChar();
     }
+  }
+
+  readString(): string {
+    const position = this.position + 1;
+    this.readChar();
+
+    while (this.ch !== '"' && this.ch !== "") {
+      this.readChar();
+    }
+
+    return this.input.slice(position, this.position);
   }
 
   readNumber(): string {

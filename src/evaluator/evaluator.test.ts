@@ -8,6 +8,7 @@ import {
   MonkeyError,
   Function,
   Environment,
+  MonkeyString,
 } from "../object/object.js";
 import { NULL, evalMonkey } from "./evaluator.js";
 
@@ -273,7 +274,6 @@ it.each([
   ({ input, expected }) => {
     debugger;
     const evaluated = testEval(input);
-    console.log(evaluated);
     testIntegerObject(evaluated, expected);
   }
 );
@@ -315,6 +315,10 @@ it.each([
   {
     input: "foobar",
     expected: "identifier not found: foobar",
+  },
+  {
+    input: `"Hello" - "World"`,
+    expected: "unknown operator: STRING - STRING",
   },
 ])("should evaluate error $input to $expected", ({ input, expected }) => {
   const evaluated = testEval(input);
@@ -417,6 +421,66 @@ it("should evaluate closures", () => {
   let addTwo = newAdder(2);
   addTwo(2);`;
   testIntegerObject(testEval(input), 4);
+});
+
+it("should evaluate string literals", () => {
+  const input = `"Hello World!"`;
+
+  const evaluated = testEval(input);
+  expect(evaluated).toBeInstanceOf(MonkeyString);
+  if (!(evaluated instanceof MonkeyString)) {
+    throw new Error("not an instance of MonkeyString");
+  }
+
+  expect(evaluated.value).toBe("Hello World!");
+});
+
+it("should evaluate string concatenation", () => {
+  const input = `"Hello" + " " + "World!"`;
+
+  const evaluated = testEval(input);
+  expect(evaluated).toBeInstanceOf(MonkeyString);
+  if (!(evaluated instanceof MonkeyString)) {
+    throw new Error("object not an instance of MonkeyString");
+  }
+
+  expect(evaluated.value).toBe("Hello World!");
+});
+
+it.each([
+  {
+    input: `len("")`,
+    expected: 0,
+  },
+  {
+    input: `len("four")`,
+    expected: 4,
+  },
+  {
+    input: `len("hello world")`,
+    expected: 11,
+  },
+  {
+    input: `len(1)`,
+    expected: "argument to `len` not supported, got INTEGER",
+  },
+  {
+    input: `len("one", "two")`,
+    expected: "wrong number of arguments. got=2, want=1",
+  },
+])("should evaluate len $input to $expected", ({ input, expected }) => {
+  const evaluated = testEval(input);
+
+  if (typeof expected === "number") {
+    testIntegerObject(evaluated, expected);
+  }
+  if (typeof expected === "string") {
+    expect(evaluated).toBeInstanceOf(MonkeyError);
+    if (!(evaluated instanceof MonkeyError)) {
+      throw new Error("object is not an instance of MonkeyError");
+    }
+    expect(evaluated.message).toBe(expected);
+  }
 });
 
 function testNullObject(obj: MonkeyObject) {

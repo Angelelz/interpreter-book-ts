@@ -15,8 +15,8 @@ import {
   IfExpression,
   FunctionLiteral,
   CallExpression,
+  StringLiteral,
 } from "../ast/ast.js";
-import { w } from "vitest/dist/types-ad1c3f45.js";
 
 it.each([
   {
@@ -656,6 +656,31 @@ it("should parse a call expression", () => {
   testLiteralExpression(exp.args[0], 1);
   testInfixExpression(exp.args[1], 2, "*", 3);
   testInfixExpression(exp.args[2], 4, "+", 5);
+});
+
+it("should parse string literals", () => {
+  const input = `"hello world";`;
+
+  const l = new Lexer(input);
+  const p = new Parser(l);
+
+  const program = p.parseProgram();
+  checkParserErrors(p);
+
+  const stmt = program.statements[0];
+
+  expect(stmt).toBeInstanceOf(ExpressionStatement);
+  if (!(stmt instanceof ExpressionStatement)) {
+    throw new Error("stmt not instance of ExpressionStatement");
+  }
+
+  const literal = stmt.expression;
+  expect(literal).toBeInstanceOf(StringLiteral);
+  if (!(literal instanceof StringLiteral)) {
+    throw new Error("literal not instance of StringLiteral");
+  }
+
+  expect(literal.value).toBe("hello world");
 });
 
 function testLetStatement(stmt: Statement, identifier: string) {
