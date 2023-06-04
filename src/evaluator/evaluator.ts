@@ -1,12 +1,15 @@
 import {
+  ArrayLiteral,
   BlockStatement,
   BooleanLiteral,
   CallExpression,
   Expression,
   ExpressionStatement,
   FunctionLiteral,
+  HashLiteral,
   Identifier,
   IfExpression,
+  IndexExpression,
   InfixExpression,
   IntegerLiteral,
   LetStatement,
@@ -29,6 +32,10 @@ import {
   Function,
   MonkeyString,
   Builtin,
+  MonkeyArray,
+  HashPair,
+  Hashable,
+  Hash,
 } from "../object/object.js";
 import { builtins } from "./builtins.js";
 
@@ -114,6 +121,33 @@ export function evalMonkey<TNode extends Node>(
     return applyFunction(functionObject, args);
   }
 
+  if (node instanceof ArrayLiteral) {
+    const elements = evalExpressions(node.elements, env);
+    if (elements.length === 1 && isError(elements[0])) {
+      return elements[0];
+    }
+
+    return new MonkeyArray(elements);
+  }
+
+  if (node instanceof HashLiteral) {
+    return evalHashLiteral(node, env);
+  }
+
+  if (node instanceof IndexExpression) {
+    const left = evalMonkey(node.left, env);
+    if (isError(left)) {
+      return left;
+    }
+
+    const index = evalMonkey(node.index, env);
+    if (isError(index)) {
+      return index;
+    }
+
+    return evalIndexExpression(left, index);
+  }
+
   return null;
 }
 
@@ -174,6 +208,79 @@ function evalExpressions(exps: Expression[], env: Environment) {
   }
 
   return result;
+}
+
+function evalHashLiteral(node: HashLiteral, env: Environment): MonkeyObject {
+  const pairs = new Map<string, HashPair>();
+
+  for (let [keyNode, valueNode] of node.pairs) {
+    const key = evalMonkey(keyNode, env);
+    if (isError(key)) {
+      return key;
+    }
+
+    if (!("hashKey" in key)) {
+      return newError("unusable as hash key: " + key.inspect());
+    }
+
+    const value = evalMonkey(valueNode, env);
+    if (isError(value)) {
+      return value;
+    }
+
+    const hashed = (key as Hashable).hashKey();
+    pairs.set(hashed, new HashPair(key, value));
+  }
+
+  return new Hash(pairs);
+}
+
+function evalIndexExpression(
+  left: MonkeyObject,
+  index: MonkeyObject
+): MonkeyObject {
+  if (left.type() === TYPE.ARRAY_OBJ && index.type() === TYPE.INTEGER_OBJ) {
+    return evalArrayIndexExpression(left, index);
+  }
+  if (left.type() === TYPE.HASH_OBJ) {
+    return evalHashIndexExpression(left, index);
+  }
+
+  return new MonkeyError(`index operator not suppported: ${left.type()}`);
+}
+
+function evalHashIndexExpression(hash: MonkeyObject, index: MonkeyObject) {
+  const hashObject = hash as Hash;
+
+  if (!("hashKey" in index)) {
+    return newError("unusable as hash key: " + index.type());
+  }
+
+  const key = (index as Hashable).hashKey();
+  const pair = hashObject.pairs.get(key);
+
+  if (!pair) {
+    return NULL;
+  }
+
+  return pair.value;
+}
+
+function evalArrayIndexExpression(
+  array: MonkeyObject,
+  index: MonkeyObject
+): MonkeyObject {
+  const arrayObject = array as MonkeyArray;
+
+  const idx = (index as Integer).value;
+
+  const max = arrayObject.elements.length - 1;
+
+  if (idx < 0 || idx > max) {
+    return NULL;
+  }
+
+  return arrayObject.elements[idx];
 }
 
 function evalIdentifier(node: Identifier, env: Environment): MonkeyObject {

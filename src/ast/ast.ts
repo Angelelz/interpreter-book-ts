@@ -96,6 +96,60 @@ export class StringLiteral implements Expression {
   }
 }
 
+export class HashLiteral implements Expression {
+  token: Token;
+  pairs: Map<Expression, Expression>;
+  constructor(token: Token, pairs: Map<Expression, Expression>) {
+    this.token = token;
+    this.pairs = pairs;
+  }
+  expressionNode() {}
+  tokenLiteral() {
+    return this.token.literal;
+  }
+  string(): string {
+    const pairs: string[] = [];
+    this.pairs.forEach((value, key) => {
+      pairs.push(`${key.string()}:${value.string()}`);
+    });
+
+    return `{${pairs.join(", ")}}`;
+  }
+}
+export class ArrayLiteral implements Expression {
+  token: Token;
+  elements: Expression[];
+  constructor(token: Token, elements: Expression[]) {
+    this.token = token;
+    this.elements = elements;
+  }
+  expressionNode() {}
+  tokenLiteral() {
+    return this.token.literal;
+  }
+  string() {
+    return `[${this.elements.map((e) => e.string()).join(", ")}]`;
+  }
+}
+
+export class IndexExpression implements Expression {
+  token: Token;
+  left: Expression;
+  index: Expression;
+  constructor(token: Token, left: Expression, index: Expression) {
+    this.token = token;
+    this.left = left;
+    this.index = index;
+  }
+  expressionNode() {}
+  tokenLiteral() {
+    return this.token.literal;
+  }
+  string() {
+    return `(${this.left.string()}[${this.index.string()}])`;
+  }
+}
+
 export class LetStatement implements Statement {
   token: Token;
   name: Identifier;

@@ -9,8 +9,10 @@ import {
   Function,
   Environment,
   MonkeyString,
+  MonkeyArray,
+  Hash,
 } from "../object/object.js";
-import { NULL, evalMonkey } from "./evaluator.js";
+import { FALSE, NULL, TRUE, evalMonkey } from "./evaluator.js";
 
 it.each([
   {
@@ -272,7 +274,6 @@ it.each([
 ])(
   "should evaluate return expression $input to $expected",
   ({ input, expected }) => {
-    debugger;
     const evaluated = testEval(input);
     testIntegerObject(evaluated, expected);
   }
@@ -319,6 +320,10 @@ it.each([
   {
     input: `"Hello" - "World"`,
     expected: "unknown operator: STRING - STRING",
+  },
+  {
+    input: `{"name": "Monkey"}[fn(x) { x }];`,
+    expected: "unusable as hash key: FUNCTION",
   },
 ])("should evaluate error $input to $expected", ({ input, expected }) => {
   const evaluated = testEval(input);
@@ -480,6 +485,149 @@ it.each([
       throw new Error("object is not an instance of MonkeyError");
     }
     expect(evaluated.message).toBe(expected);
+  }
+});
+
+it("should evaluate array literals", () => {
+  const input = "[1, 2 * 2, 3 + 3]";
+
+  const evaluated = testEval(input);
+  expect(evaluated).toBeInstanceOf(MonkeyArray);
+  if (!(evaluated instanceof MonkeyArray)) {
+    throw new Error("object is not an instance of MonkeyArray");
+  }
+
+  expect(evaluated.elements.length).toBe(3);
+
+  testIntegerObject(evaluated.elements[0], 1);
+  testIntegerObject(evaluated.elements[1], 4);
+  testIntegerObject(evaluated.elements[2], 6);
+});
+
+it.each([
+  {
+    input: "[1, 2, 3][0]",
+    expected: 1,
+  },
+  {
+    input: "[1, 2, 3][1]",
+    expected: 2,
+  },
+  {
+    input: "[1, 2, 3][2]",
+    expected: 3,
+  },
+  {
+    input: "let i = 0; [1][i];",
+    expected: 1,
+  },
+  {
+    input: "[1, 2, 3][1 + 1];",
+    expected: 3,
+  },
+  {
+    input: "let myArray = [1, 2, 3]; myArray[2];",
+    expected: 3,
+  },
+  {
+    input: "let myArray = [1, 2, 3]; myArray[0] + myArray[1] + myArray[2];",
+    expected: 6,
+  },
+  {
+    input: "let myArray = [1, 2, 3]; let i = myArray[0]; myArray[i]",
+    expected: 2,
+  },
+  {
+    input: "[1, 2, 3][3]",
+    expected: null,
+  },
+  {
+    input: "[1, 2, 3][-1]",
+    expected: null,
+  },
+])(
+  "should evaluate index expression $input to $expected",
+  ({ input, expected }) => {
+    const evaluated = testEval(input);
+
+    if (typeof expected === "number") {
+      testIntegerObject(evaluated, expected);
+    } else {
+      testNullObject(evaluated);
+    }
+  }
+);
+
+it("should evaluate hash literals", () => {
+  const input = `let two = "two";
+    {
+      "one": 10 - 9,
+      two: 1 + 1,
+      "thr" + "ee": 6 / 2,
+      4: 4,
+      true: 5,
+      false: 6,
+    }`;
+
+  const evaluated = testEval(input);
+  expect(evaluated).toBeInstanceOf(Hash);
+  if (!(evaluated instanceof Hash)) {
+    throw new Error("object is not an instance of Hash");
+  }
+
+  const expected = new Map([
+    [new MonkeyString("one").hashKey(), 1],
+    [new MonkeyString("two").hashKey(), 2],
+    [new MonkeyString("three").hashKey(), 3],
+    [new Integer(4).hashKey(), 4],
+    [TRUE.hashKey(), 5],
+    [FALSE.hashKey(), 6],
+  ]);
+
+  expect(evaluated.pairs.size).toEqual(expected.size);
+
+  for (let [expectedKey, expectedValue] of expected.entries()) {
+    const pair = evaluated.pairs.get(expectedKey);
+    expect(pair).toBeDefined();
+    testIntegerObject(pair.value, expectedValue);
+  }
+});
+
+it.each([
+  {
+    input: `{"foo": 5}["foo"]`,
+    expected: 5,
+  },
+  {
+    input: `{"foo": 5}["bar"]`,
+    expected: null,
+  },
+  {
+    input: `let key = "foo"; {"foo": 5}[key]`,
+    expected: 5,
+  },
+  {
+    input: `{}["foo"]`,
+    expected: null,
+  },
+  {
+    input: `{5: 5}[5]`,
+    expected: 5,
+  },
+  {
+    input: `{true: 5}[true]`,
+    expected: 5,
+  },
+  {
+    input: `{false: 5}[false]`,
+    expected: 5,
+  },
+])("should evaluate $input to $expected", ({ input, expected }) => {
+  const evaluated = testEval(input);
+  if (expected === null) {
+    testNullObject(evaluated);
+  } else {
+    testIntegerObject(evaluated, expected);
   }
 });
 

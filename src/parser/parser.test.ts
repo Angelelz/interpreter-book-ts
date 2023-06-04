@@ -16,6 +16,9 @@ import {
   FunctionLiteral,
   CallExpression,
   StringLiteral,
+  ArrayLiteral,
+  IndexExpression,
+  HashLiteral,
 } from "../ast/ast.js";
 
 it.each([
@@ -441,6 +444,14 @@ it.each([
     input: "add(a + b + c * d / f + g)",
     expected: "add((((a + b) + ((c * d) / f)) + g))",
   },
+  {
+    input: "a * [1, 2, 3, 4][b * c] * d",
+    expected: "((a * ([1, 2, 3, 4][(b * c)])) * d)",
+  },
+  {
+    input: "add(a * b[2], b[1], 2 * [1, 2][1])",
+    expected: "add((a * (b[2])), (b[1]), (2 * ([1, 2][1])))",
+  },
 ])(
   "should parse operator precedence $input as $expected",
   ({ input, expected }) => {
@@ -682,6 +693,205 @@ it("should parse string literals", () => {
 
   expect(literal.value).toBe("hello world");
 });
+
+it("should parse Array identifiers", () => {
+  const input = "[1, 2 * 2, 3 + 3]";
+
+  const l = new Lexer(input);
+  const p = new Parser(l);
+
+  const program = p.parseProgram();
+  checkParserErrors(p);
+
+  const stmt = program.statements[0];
+  expect(stmt).toBeInstanceOf(ExpressionStatement);
+  if (!(stmt instanceof ExpressionStatement)) {
+    throw new Error("stmt not instance of ExpressionStatement");
+  }
+
+  const array = stmt.expression;
+  expect(array).toBeInstanceOf(ArrayLiteral);
+  if (!(array instanceof ArrayLiteral)) {
+    throw new Error("array not instance of ArrayLiteral");
+  }
+
+  expect(array.elements.length).toBe(3);
+
+  testIntegerLiteral(array.elements[0], 1);
+  testInfixExpression(array.elements[1], 2, "*", 2);
+  testInfixExpression(array.elements[2], 3, "+", 3);
+});
+
+it("should parse index expressions", () => {
+  const input = "myArray[1 + 1];";
+
+  const l = new Lexer(input);
+  const p = new Parser(l);
+
+  const program = p.parseProgram();
+  checkParserErrors(p);
+
+  const stmt = program.statements[0];
+  expect(stmt).toBeInstanceOf(ExpressionStatement);
+  if (!(stmt instanceof ExpressionStatement)) {
+    throw new Error("stmt not instance of ExpressionStatement");
+  }
+
+  const exp = stmt.expression;
+  expect(exp).toBeInstanceOf(IndexExpression);
+  if (!(exp instanceof IndexExpression)) {
+    throw new Error("exp not instance of IndexExpression");
+  }
+
+  testIdentifier(exp.left, "myArray");
+
+  testInfixExpression(exp.index, 1, "+", 1);
+});
+
+it.each([
+  {
+    input: `{"one": 1, "two": 2, "three": 3}`,
+    keyType: "string",
+    expected: new Map([
+      ["one", 1],
+      ["two", 2],
+      ["three", 3],
+    ]),
+  },
+  {
+    input: `{1: 1, 2: 2, 3: 3}`,
+    keyType: "number",
+    expected: new Map([
+      [1, 1],
+      [2, 2],
+      [3, 3],
+    ]),
+  },
+  {
+    input: `{true: 1, false: 2}`,
+    keyType: "boolean",
+    expected: new Map([
+      [true, 1],
+      [false, 2],
+    ]),
+  },
+])("should parse hash literals $input", ({ input, keyType, expected }) => {
+  const l = new Lexer(input);
+  const p = new Parser(l);
+
+  const program = p.parseProgram();
+  checkParserErrors(p);
+
+  const stmt = program.statements[0];
+  expect(stmt).toBeInstanceOf(ExpressionStatement);
+  if (!(stmt instanceof ExpressionStatement)) {
+    throw new Error("stmt not instance of ExpressionStatement");
+  }
+
+  const hash = stmt.expression;
+  expect(hash).toBeInstanceOf(HashLiteral);
+  if (!(hash instanceof HashLiteral)) {
+    throw new Error("hash not instance of HashLiteral");
+  }
+
+  expect(hash.pairs.size).toBe(expected.size);
+
+  for (const [key, value] of hash.pairs) {
+    if (keyType === "number") {
+      expect(key).toBeInstanceOf(IntegerLiteral);
+      if (!(key instanceof IntegerLiteral)) {
+        throw new Error("key not instance of NumberLiteral");
+      }
+    }
+    if (keyType === "string") {
+      expect(key).toBeInstanceOf(StringLiteral);
+      if (!(key instanceof StringLiteral)) {
+        throw new Error("key not instance of StringLiteral");
+      }
+    }
+    if (keyType === "boolean") {
+      expect(key).toBeInstanceOf(BooleanLiteral);
+      if (!(key instanceof BooleanLiteral)) {
+        throw new Error("key not instance of BooleanLiteral");
+      }
+    }
+
+    const expectedValue = expected.get((key as any).value as never);
+
+    testIntegerLiteral(value, expectedValue);
+  }
+});
+
+it("should parse Empty HashLiteral", () => {
+  const input = "{}";
+
+  const l = new Lexer(input);
+  const p = new Parser(l);
+
+  const program = p.parseProgram();
+  checkParserErrors(p);
+
+  const stmt = program.statements[0];
+  expect(stmt).toBeInstanceOf(ExpressionStatement);
+  if (!(stmt instanceof ExpressionStatement)) {
+    throw new Error("stmt not instance of ExpressionStatement");
+  }
+
+  const hash = stmt.expression;
+  expect(hash).toBeInstanceOf(HashLiteral);
+  if (!(hash instanceof HashLiteral)) {
+    throw new Error("hash not instance of HashLiteral");
+  }
+
+  expect(hash.pairs.size).toBe(0);
+});
+
+it.each([
+  {
+    input: `{"one": 0 + 1, "two": 10 - 8, "three": 15/5}`,
+    expected: new Map([
+      ["one", (exp: Expression) => testInfixExpression(exp, 0, "+", 1)],
+      ["two", (exp: Expression) => testInfixExpression(exp, 10, "-", 8)],
+      ["three", (exp: Expression) => testInfixExpression(exp, 15, "/", 5)],
+    ]),
+  },
+])(
+  "should parse hash literals with expressions $input",
+  ({ input, expected }) => {
+    const l = new Lexer(input);
+    const p = new Parser(l);
+
+    const program = p.parseProgram();
+    checkParserErrors(p);
+
+    const stmt = program.statements[0];
+    expect(stmt).toBeInstanceOf(ExpressionStatement);
+    if (!(stmt instanceof ExpressionStatement)) {
+      throw new Error("stmt not instance of ExpressionStatement");
+    }
+
+    const hash = stmt.expression;
+    expect(hash).toBeInstanceOf(HashLiteral);
+    if (!(hash instanceof HashLiteral)) {
+      throw new Error("hash not instance of HashLiteral");
+    }
+
+    expect(hash.pairs.size).toBe(3);
+
+    for (const [key, value] of hash.pairs) {
+      expect(key).toBeInstanceOf(StringLiteral);
+      if (!(key instanceof StringLiteral)) {
+        throw new Error("key not instance of StringLiteral");
+      }
+
+      const testFunc = expected.get(key.string());
+
+      expect(testFunc).toBeDefined();
+
+      testFunc(value);
+    }
+  }
+);
 
 function testLetStatement(stmt: Statement, identifier: string) {
   expect(stmt.tokenLiteral()).toBe("let");

@@ -11,6 +11,8 @@ export const TYPE = {
   FUNCTION_OBJ: "FUNCTION",
   STRING_OBJ: "STRING",
   BUILTIN_OBJ: "BUILTIN",
+  ARRAY_OBJ: "ARRAY",
+  HASH_OBJ: "HASH",
 } as const;
 
 export type MonkeyObject = {
@@ -18,7 +20,58 @@ export type MonkeyObject = {
   inspect(): string;
 };
 
+export type Hashable = {
+  hashKey(): string;
+};
+
+export class HashKey {
+  type: ObjectType;
+  value: number | string;
+  constructor(type: ObjectType, value: string | number) {
+    this.type = type;
+    this.value = value;
+  }
+}
+
+export class HashPair {
+  key: MonkeyObject;
+  value: MonkeyObject;
+  constructor(key: MonkeyObject, value: MonkeyObject) {
+    this.key = key;
+    this.value = value;
+  }
+}
+
+export class Hash implements MonkeyObject {
+  pairs: Map<string, HashPair>;
+  constructor(pairs: Map<string, HashPair>) {
+    this.pairs = pairs;
+  }
+  type(): ObjectType {
+    return TYPE.HASH_OBJ;
+  }
+  inspect() {
+    const pairs = Array.from(this.pairs.values()).map((value) => {
+      return `${value.key.inspect()}: ${value.value.inspect()}`;
+    });
+    return `{${pairs.join(", ")}}`;
+  }
+}
+
 export type BuiltinFunction = (...args: MonkeyObject[]) => MonkeyObject;
+
+export class MonkeyArray implements MonkeyObject {
+  elements: MonkeyObject[];
+  constructor(elements: MonkeyObject[]) {
+    this.elements = elements;
+  }
+  type() {
+    return TYPE.ARRAY_OBJ;
+  }
+  inspect() {
+    return `[${this.elements.map((e) => e.inspect()).join(", ")}]`;
+  }
+}
 
 export class Builtin implements MonkeyObject {
   fn: BuiltinFunction;
@@ -107,7 +160,7 @@ export class ReturnValue implements MonkeyObject {
   }
 }
 
-export class MonkeyString implements MonkeyObject {
+export class MonkeyString implements MonkeyObject, Hashable {
   value: string;
   constructor(value: string) {
     this.value = value;
@@ -118,9 +171,18 @@ export class MonkeyString implements MonkeyObject {
   inspect() {
     return this.value;
   }
+  hashKey() {
+    // const hash =
+    //   this.value.length *
+    //   this.value
+    //     .split("")
+    //     .map((c) => c.charCodeAt(0))
+    //     .reduce((a, b) => a ^ b);
+    return JSON.stringify(new HashKey(this.type(), this.value));
+  }
 }
 
-export class Integer implements MonkeyObject {
+export class Integer implements MonkeyObject, Hashable {
   value: number;
   constructor(value: number) {
     this.value = value;
@@ -131,9 +193,12 @@ export class Integer implements MonkeyObject {
   inspect() {
     return this.value.toString();
   }
+  hashKey() {
+    return JSON.stringify(new HashKey(this.type(), this.value));
+  }
 }
 
-export class Boolean implements MonkeyObject {
+export class Boolean implements MonkeyObject, Hashable {
   value: boolean;
   constructor(value: boolean) {
     this.value = value;
@@ -143,6 +208,9 @@ export class Boolean implements MonkeyObject {
   }
   inspect() {
     return this.value.toString();
+  }
+  hashKey() {
+    return JSON.stringify(new HashKey(this.type(), this.value ? 1 : 0));
   }
 }
 

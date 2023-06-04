@@ -76,6 +76,9 @@ if (5 < 10) {
 10 != 9;
 "foobar"
 "foo bar"
+[1, 2];
+[];
+{"foo": "bar"}
 `;
 
   const tests: { expectedType: TokenType; expectedLiteral: string }[] = [
@@ -154,6 +157,20 @@ if (5 < 10) {
     { expectedType: TOKENS.SEMICOLON, expectedLiteral: ";" },
     { expectedType: TOKENS.STRING, expectedLiteral: "foobar" },
     { expectedType: TOKENS.STRING, expectedLiteral: "foo bar" },
+    { expectedType: TOKENS.LBRACKET, expectedLiteral: "[" },
+    { expectedType: TOKENS.INT, expectedLiteral: "1" },
+    { expectedType: TOKENS.COMMA, expectedLiteral: "," },
+    { expectedType: TOKENS.INT, expectedLiteral: "2" },
+    { expectedType: TOKENS.RBRACKET, expectedLiteral: "]" },
+    { expectedType: TOKENS.SEMICOLON, expectedLiteral: ";" },
+    { expectedType: TOKENS.LBRACKET, expectedLiteral: "[" },
+    { expectedType: TOKENS.RBRACKET, expectedLiteral: "]" },
+    { expectedType: TOKENS.SEMICOLON, expectedLiteral: ";" },
+    { expectedType: TOKENS.LBRACE, expectedLiteral: "{" },
+    { expectedType: TOKENS.STRING, expectedLiteral: "foo" },
+    { expectedType: TOKENS.COLON, expectedLiteral: ":" },
+    { expectedType: TOKENS.STRING, expectedLiteral: "bar" },
+    { expectedType: TOKENS.RBRACE, expectedLiteral: "}" },
     { expectedType: TOKENS.EOF, expectedLiteral: "" },
   ];
 

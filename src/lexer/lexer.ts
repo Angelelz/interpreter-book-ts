@@ -83,11 +83,20 @@ export class Lexer {
       case "}":
         tok = { type: TOKENS.RBRACE, literal: "}" };
         break;
+      case "[":
+        tok = { type: TOKENS.LBRACKET, literal: "[" };
+        break;
+      case "]":
+        tok = { type: TOKENS.RBRACKET, literal: "]" };
+        break;
       case "":
         tok = { type: TOKENS.EOF, literal: "" };
         break;
       case '"':
         tok = { type: TOKENS.STRING, literal: this.readString() };
+        break;
+      case ":":
+        tok = { type: TOKENS.COLON, literal: ":" };
         break;
       default:
         if (this.isLetter(this.ch)) {

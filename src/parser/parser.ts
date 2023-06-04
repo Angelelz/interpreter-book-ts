@@ -1,12 +1,15 @@
 import {
+  ArrayLiteral,
   BlockStatement,
   BooleanLiteral,
   CallExpression,
   Expression,
   ExpressionStatement,
   FunctionLiteral,
+  HashLiteral,
   Identifier,
   IfExpression,
+  IndexExpression,
   InfixExpression,
   IntegerLiteral,
   LetStatement,
@@ -31,6 +34,7 @@ const CONSTANTS = {
   PRODUCT: 5,
   PREFIX: 6,
   CALL: 7,
+  INDEX: 8,
 };
 
 const PRECEDENCE: Record<string, number> = {
@@ -43,6 +47,7 @@ const PRECEDENCE: Record<string, number> = {
   [TOKENS.ASTERISK]: CONSTANTS.PRODUCT,
   [TOKENS.SLASH]: CONSTANTS.PRODUCT,
   [TOKENS.LPAREN]: CONSTANTS.CALL,
+  [TOKENS.LBRACKET]: CONSTANTS.INDEX,
 };
 
 export class Parser {
@@ -67,6 +72,8 @@ export class Parser {
     this.registerPrefix(TOKENS.IF, this.parseIfExpression);
     this.registerPrefix(TOKENS.FUNCTION, this.parseFunctionLiteral);
     this.registerPrefix(TOKENS.STRING, this.parseStringLiteral);
+    this.registerPrefix(TOKENS.LBRACKET, this.parseArrayLiteral);
+    this.registerPrefix(TOKENS.LBRACE, this.parseHashLiteral);
     this.registerInfix(TOKENS.PLUS, this.parseInfixExpression);
     this.registerInfix(TOKENS.MINUS, this.parseInfixExpression);
     this.registerInfix(TOKENS.ASTERISK, this.parseInfixExpression);
@@ -76,6 +83,7 @@ export class Parser {
     this.registerInfix(TOKENS.LT, this.parseInfixExpression);
     this.registerInfix(TOKENS.GT, this.parseInfixExpression);
     this.registerInfix(TOKENS.LPAREN, this.parseCallExpression);
+    this.registerInfix(TOKENS.LBRACKET, this.parseIndexExpression);
     this.nextToken();
     this.nextToken();
     return this;
@@ -169,35 +177,110 @@ export class Parser {
     return leftExpression;
   }
 
-  parseCallExpression(func: Expression): Expression | null {
-    const exp = new CallExpression(this.curToken, func, null);
-    exp.args = this.parseCallArguments();
+  parseIndexExpression(left: Expression): Expression | null {
+    const exp = new IndexExpression(this.curToken, left, null);
+
+    this.nextToken();
+    exp.index = this.parseExpression(CONSTANTS.LOWEST);
+
+    if (!this.expectPeek(TOKENS.RBRACKET)) {
+      return null;
+    }
+
     return exp;
   }
 
-  parseCallArguments(): Expression[] {
-    const args: Expression[] = [];
+  parseHashLiteral(): Expression {
+    const hash = new HashLiteral(this.curToken, null);
+    hash.pairs = new Map();
 
-    if (this.peekTokenIs(TOKENS.RPAREN)) {
+    while (!this.peekTokenIs(TOKENS.RBRACE)) {
       this.nextToken();
-      return args;
+      const key = this.parseExpression(CONSTANTS.LOWEST);
+
+      if (!this.expectPeek(TOKENS.COLON)) {
+        return null;
+      }
+
+      this.nextToken();
+      const value = this.parseExpression(CONSTANTS.LOWEST);
+
+      hash.pairs.set(key, value);
+
+      if (!this.peekTokenIs(TOKENS.RBRACE) && !this.expectPeek(TOKENS.COMMA)) {
+        return null;
+      }
+    }
+
+    if (!this.expectPeek(TOKENS.RBRACE)) {
+      return null;
+    }
+
+    return hash;
+  }
+
+  parseArrayLiteral(): Expression {
+    const array = new ArrayLiteral(
+      this.curToken,
+      this.parseExpressionList(TOKENS.RBRACKET)
+    );
+
+    return array;
+  }
+
+  parseExpressionList(end: TokenType): Expression[] {
+    const list: Expression[] = [];
+
+    if (this.peekTokenIs(end)) {
+      this.nextToken();
+      return list;
     }
 
     this.nextToken();
-    args.push(this.parseExpression(CONSTANTS.LOWEST));
+    list.push(this.parseExpression(CONSTANTS.LOWEST));
 
     while (this.peekTokenIs(TOKENS.COMMA)) {
       this.nextToken();
       this.nextToken();
-      args.push(this.parseExpression(CONSTANTS.LOWEST));
+      list.push(this.parseExpression(CONSTANTS.LOWEST));
     }
 
-    if (!this.expectPeek(TOKENS.RPAREN)) {
+    if (!this.expectPeek(end)) {
       return null;
     }
 
-    return args;
+    return list;
   }
+
+  parseCallExpression(func: Expression): Expression | null {
+    const exp = new CallExpression(this.curToken, func, null);
+    exp.args = this.parseExpressionList(TOKENS.RPAREN);
+    return exp;
+  }
+
+  // parseCallArguments(): Expression[] {
+  //   const args: Expression[] = [];
+  //
+  //   if (this.peekTokenIs(TOKENS.RPAREN)) {
+  //     this.nextToken();
+  //     return args;
+  //   }
+  //
+  //   this.nextToken();
+  //   args.push(this.parseExpression(CONSTANTS.LOWEST));
+  //
+  //   while (this.peekTokenIs(TOKENS.COMMA)) {
+  //     this.nextToken();
+  //     this.nextToken();
+  //     args.push(this.parseExpression(CONSTANTS.LOWEST));
+  //   }
+  //
+  //   if (!this.expectPeek(TOKENS.RPAREN)) {
+  //     return null;
+  //   }
+  //
+  //   return args;
+  // }
 
   parseFunctionLiteral(): Expression | null {
     const literal = new FunctionLiteral(this.curToken, null, null);
